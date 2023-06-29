@@ -11,6 +11,8 @@ using NodaTime;
 using OneSTools.EventLog.Exporter.Core;
 using OneSTools.EventLog.Exporter.Core.ClickHouse;
 using OneSTools.EventLog.Exporter.Core.ElasticSearch;
+using OneSTools.EventLog.Exporter.Core.Splunk;
+
 
 namespace OneSTools.EventLog.Exporter.Manager
 {
@@ -36,6 +38,11 @@ namespace OneSTools.EventLog.Exporter.Manager
         private readonly Dictionary<string, CancellationTokenSource> _runExporters = new();
         private readonly string _separation;
 
+        // Splunk
+        private string _splunkHost;
+        private string _splunkToken;
+        private string _splunkPath;
+
         private readonly IServiceProvider _serviceProvider;
 
         // Common settings
@@ -43,6 +50,7 @@ namespace OneSTools.EventLog.Exporter.Manager
         private readonly DateTimeZone _timeZone = DateTimeZoneProviders.Tzdb.GetSystemDefault();
         private readonly int _writingMaxDop;
         private readonly DateTime _skipEventsBeforeDate;
+
 
         public ExportersManager(ILogger<ExportersManager> logger, IServiceProvider serviceProvider,
             IConfiguration configuration)
@@ -58,6 +66,7 @@ namespace OneSTools.EventLog.Exporter.Manager
             _loadArchive = configuration.GetValue("Exporter:LoadArchive", false);
             _readingTimeout = configuration.GetValue("Exporter:ReadingTimeout", 1);
             _skipEventsBeforeDate = configuration.GetValue("Exporter:SkipEventsBeforeDate", DateTime.MinValue);
+            
 
             var timeZone = configuration.GetValue("Exporter:TimeZone", "");
 
@@ -87,6 +96,19 @@ namespace OneSTools.EventLog.Exporter.Manager
                             ElasticSearchStorage.DefaultMaximumRetries);
                         _maxRetryTimeout = TimeSpan.FromSeconds(configuration.GetValue("ElasticSearch:MaxRetryTimeout",
                             ElasticSearchStorage.DefaultMaxRetryTimeoutSec));
+                        break;
+                    }
+                case StorageType.Splunk:
+                    {
+                        _splunkHost = configuration.GetValue("Splunk:Host", "");
+                        if (string.IsNullOrWhiteSpace(_splunkHost))
+                            throw new Exception("Splunk Host is not specified");
+                        _splunkToken = configuration.GetValue("Splunk:Token", "");
+                        if (string.IsNullOrWhiteSpace(_splunkToken))
+                            throw new Exception("Splunk Token is not specified");
+                        _splunkPath = configuration.GetValue("Splunk:EventLogPositionPath", "");
+                        if (string.IsNullOrWhiteSpace(_splunkPath))
+                            throw new Exception("EventLogPositionPath is not specified");
                         break;
                     }
             }
@@ -249,6 +271,22 @@ namespace OneSTools.EventLog.Exporter.Manager
                         settings.Nodes.AddRange(_nodes);
 
                         return new ElasticSearchStorage(settings, logger);
+                    }
+                case StorageType.Splunk:
+                    {
+                        var logger =
+                            (ILogger<SplunkStorage>)_serviceProvider.GetService(
+                                typeof(ILogger<SplunkStorage>));
+
+                        var settings = new SplunkStorageSetting
+                        {
+                            DB = dataBaseName,
+                            Path = _splunkPath,
+                            Host = _splunkHost,
+                            Token = _splunkToken
+                        };
+
+                        return new SplunkStorage(settings, logger);
                     }
                 case StorageType.None:
                     throw new Exception("StorageType parameter is not specified");
