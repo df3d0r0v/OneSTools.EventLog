@@ -212,7 +212,10 @@ namespace OneSTools.EventLog.Exporter.Manager
                                 }
                                 catch (Exception ex)
                                 {
-                                    _logger?.LogCritical(ex, "Failed to execute EventLogExporter");
+					                if (ex.Message.ToString().Contains("LPG reader is not initialized"))
+                                        _logger?.LogInformation(ex, "LPG error");
+                                    else
+                                        _logger?.LogCritical(ex, "Failed to execute EventLogExporter");
                                 }
                                 await Task.Delay(5000);
                             }
