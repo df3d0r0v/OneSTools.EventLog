@@ -42,6 +42,7 @@ namespace OneSTools.EventLog.Exporter.Manager
         private string _splunkHost;
         private string _splunkToken;
         private string _splunkPath;
+        private int _splunkTimeout;
 
         private readonly IServiceProvider _serviceProvider;
 
@@ -109,6 +110,7 @@ namespace OneSTools.EventLog.Exporter.Manager
                         _splunkPath = configuration.GetValue("Splunk:EventLogPositionPath", "");
                         if (string.IsNullOrWhiteSpace(_splunkPath))
                             throw new Exception("EventLogPositionPath is not specified");
+                        _splunkTimeout = configuration.GetValue("Splunk:Timeout", 5); ;
                         break;
                     }
             }
@@ -286,7 +288,8 @@ namespace OneSTools.EventLog.Exporter.Manager
                             DB = dataBaseName,
                             Path = _splunkPath,
                             Host = _splunkHost,
-                            Token = _splunkToken
+                            Token = _splunkToken,
+                            SplunkTimeout = _splunkTimeout
                         };
 
                         return new SplunkStorage(settings, logger);

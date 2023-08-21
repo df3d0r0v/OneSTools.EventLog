@@ -23,7 +23,7 @@ namespace OneSTools.EventLog.Exporter.Core.Splunk
         private string _databaseName;
         string _lastevent = null;
         HttpClient _client;
-        private int _maximumRetries = 3;
+        private TimeSpan _timeout;
 
 
         // Constructor for manager
@@ -35,11 +35,12 @@ namespace OneSTools.EventLog.Exporter.Core.Splunk
             _splunkToken = settings.Token;
             _eventLogPositionPath = Path.Combine(settings.Path, $"eventLogPosition-{settings.DB}.txt");
             _databaseName = settings.DB;
+            _timeout = TimeSpan.FromSeconds(settings.SplunkTimeout);
 
             _client = new HttpClient();
             _client.BaseAddress = new Uri(_splunkHost);
             _client.DefaultRequestHeaders.Add("Authorization", _splunkToken);
-            _client.Timeout = TimeSpan.FromSeconds(3);
+            _client.Timeout = _timeout;
             CheckSettings();
         }
 
@@ -50,14 +51,14 @@ namespace OneSTools.EventLog.Exporter.Core.Splunk
 
             _splunkHost = configuration.GetValue("Splunk:Host", "");
             _splunkToken = configuration.GetValue("Splunk:Token", "");
-
+            _timeout = TimeSpan.FromSeconds(configuration.GetValue("Splunk:Timeout", 30));
             // check how to handle if get value is empty ?????
             _eventLogPositionPath = Path.Combine(configuration.GetValue("Splunk:EventLogPositionPath", ""), "eventLogPosition.txt");
 
             _client = new HttpClient();
             _client.BaseAddress = new Uri(_splunkHost);
             _client.DefaultRequestHeaders.Add("Authorization", _splunkToken);
-            _client.Timeout = TimeSpan.FromSeconds(3);
+            _client.Timeout = _timeout;
             CheckSettings();
         }
 
@@ -110,7 +111,8 @@ namespace OneSTools.EventLog.Exporter.Core.Splunk
                 WriteIndented = true
             };
 
-            for(var i = 0; i < entities.Count; i++)
+            _logger?.LogInformation("Sending portion of events started");
+            for (var i = 0; i < entities.Count; i++)
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
@@ -121,20 +123,28 @@ namespace OneSTools.EventLog.Exporter.Core.Splunk
                 // Convert event log item to JSON
                 entities[i].DatabaseName = _databaseName;
                 string json = JsonSerializer.Serialize(entities[i], options);
-                var content = new StringContent("{\"event\": " + json + "}", Encoding.UTF8, "application/json");
-
+                long time = convertTime(entities[i].DateTime);
+                StringContent content = new StringContent("{\"event\": " + json + ",\"time\": " + time + "}", Encoding.UTF8, "application/json");
+                
                 // Send the event to Splunk and check result
                 if (await HttpPostAsync(content, cancellationToken))
                 {
-                    _logger?.LogInformation("Event sent successfully.");
+                    // disabled for optimization
+                    //_logger?.LogInformation("Event sent successfully.");
                     _lastevent = json;
                 }
                 else
                     i--;
             }
-
+            _logger?.LogInformation("Sending portion of events finished");
+            
             //Write last position to file
             await SavePosition();
+        }
+
+        private long convertTime(DateTime DateTime)
+        {
+            return ((DateTimeOffset)DateTime).ToUnixTimeSeconds();
         }
 
         private async Task SavePosition()
