@@ -124,6 +124,7 @@ namespace OneSTools.EventLog.Exporter.Core.Splunk
                 entities[i].DatabaseName = _databaseName;
                 string json = JsonSerializer.Serialize(entities[i], options);
                 long time = convertTime(entities[i].DateTime);
+                
                 StringContent content = new StringContent("{\"event\": " + json + ",\"time\": " + time + "}", Encoding.UTF8, "application/json");
                 
                 // Send the event to Splunk and check result
@@ -142,9 +143,20 @@ namespace OneSTools.EventLog.Exporter.Core.Splunk
             await SavePosition();
         }
 
-        private long convertTime(DateTime DateTime)
+        private long convertTime(DateTime dateTime)
         {
-            return ((DateTimeOffset)DateTime).ToUnixTimeSeconds();
+            //return ((DateTimeOffset)dateTime).ToUnixTimeSeconds();
+
+            // Calculate the difference in seconds between the current time and the Unix epoch
+            TimeSpan timeSinceEpoch = dateTime - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+            // Convert the time difference to seconds and get the total number of seconds
+            double epochTimeInSeconds = timeSinceEpoch.TotalSeconds;
+
+            // Convert to long (Unix epoch time is usually represented as a long)
+            long epochTime = (long)epochTimeInSeconds;
+
+            return epochTime;
         }
 
         private async Task SavePosition()
