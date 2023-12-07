@@ -66,8 +66,6 @@ namespace OneSTools.EventLog
             {
                 try
                 {
-		    if (_lgpReader == null)
-                        throw new Exception($"LPG reader is not initialized. Check for lpg files in the {_settings.LogFolder}");
                     item = _lgpReader.ReadNextEventLogItem(cancellationToken);
                 }
                 catch (ObjectDisposedException)
@@ -79,25 +77,23 @@ namespace OneSTools.EventLog
 
                 if (item == null)
                 {
-                    var newReader = SetNextLgpReader();
-
                     if (_settings.LiveMode)
                     {
-                        if (!newReader)
-                        {
-                            _lgpChangedCreated.Reset();
+                        _lgpChangedCreated.Reset();
 
-                            var waitHandle = WaitHandle.WaitAny(
-                                new[] {_lgpChangedCreated, cancellationToken.WaitHandle}, _settings.ReadingTimeout);
+                        var waitHandle = WaitHandle.WaitAny(
+                            new[] {_lgpChangedCreated, cancellationToken.WaitHandle}, _settings.ReadingTimeout);
 
-                            if (_settings.ReadingTimeout != Timeout.Infinite && waitHandle == WaitHandle.WaitTimeout)
-                                throw new EventLogReaderTimeoutException();
+                        if (_settings.ReadingTimeout != Timeout.Infinite && waitHandle == WaitHandle.WaitTimeout)
+                            throw new EventLogReaderTimeoutException();
 
-                            _lgpChangedCreated.Reset();
-                        }
+                        SetNextLgpReader();
+
+                        _lgpChangedCreated.Reset();
                     }
                     else
                     {
+                        var newReader = SetNextLgpReader();
                         if (!newReader)
                             break;
                     }
@@ -123,24 +119,14 @@ namespace OneSTools.EventLog
             else if(_settings.SkipEventsBeforeDate != DateTime.MinValue)
                 currentReaderLastWriteDateTime = _settings.SkipEventsBeforeDate.AddSeconds(-1);
 
-            var filesDateTime = new List<(string, DateTime)>();
+            var filesDateTime = Directory.EnumerateFiles(_settings.LogFolder, "*.lgp")
+                .Select(file => (file, File.GetLastWriteTime(file)))
+                .Where(tuple => _lgpReader == null || tuple.file != _lgpReader.LgpPath)
+                .Where(tuple => tuple.Item2 > currentReaderLastWriteDateTime)
+                .OrderBy(tuple => tuple.Item2)
+                .FirstOrDefault();
 
-            var files = Directory.GetFiles(_settings.LogFolder, "*.lgp");
-
-            foreach (var file in files)
-                if (_lgpReader != null)
-                {
-                    if (_lgpReader.LgpPath != file)
-                        filesDateTime.Add((file, new FileInfo(file).LastWriteTime));
-                }
-                else
-                {
-                    filesDateTime.Add((file, new FileInfo(file).LastWriteTime));
-                }
-
-            var orderedFiles = filesDateTime.OrderBy(c => c.Item2).ToList();
-
-            var (item1, _) = orderedFiles.FirstOrDefault(c => c.Item2 > currentReaderLastWriteDateTime);
+            var item1 = filesDateTime.file;
 
             if (string.IsNullOrEmpty(item1))
             {
@@ -161,7 +147,7 @@ namespace OneSTools.EventLog
 
             _lgpFilesWatcher = new FileSystemWatcher(_settings.LogFolder, "*.lgp")
             {
-                NotifyFilter = NotifyFilters.CreationTime | NotifyFilters.LastWrite | NotifyFilters.Size
+                NotifyFilter = NotifyFilters.CreationTime | NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.Attributes
             };
             _lgpFilesWatcher.Changed += LgpFilesWatcher_Event;
             _lgpFilesWatcher.Created += LgpFilesWatcher_Event;
@@ -170,7 +156,13 @@ namespace OneSTools.EventLog
 
         private void LgpFilesWatcher_Event(object sender, FileSystemEventArgs e)
         {
-            if (e.ChangeType == WatcherChangeTypes.Created || e.ChangeType == WatcherChangeTypes.Changed)
+            if (e.ChangeType == WatcherChangeTypes.Created)
+            {
+                _lgpReader?.Dispose();
+                _lgpReader = null;
+                _lgpChangedCreated.Set();
+            }
+            else if (e.ChangeType == WatcherChangeTypes.Changed)
                 _lgpChangedCreated.Set();
         }
 
