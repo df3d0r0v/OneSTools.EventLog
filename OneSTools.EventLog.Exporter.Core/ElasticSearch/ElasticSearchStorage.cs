@@ -1,13 +1,13 @@
-﻿using System;
+﻿using Elasticsearch.Net;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Nest;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Elasticsearch.Net;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using Nest;
 
 namespace OneSTools.EventLog.Exporter.Core.ElasticSearch
 {

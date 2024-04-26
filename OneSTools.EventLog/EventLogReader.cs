@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -17,6 +16,7 @@ namespace OneSTools.EventLog
         private ManualResetEvent _lgpChangedCreated;
         private FileSystemWatcher _lgpFilesWatcher;
         private LgpReader _lgpReader;
+        private string _newLgpPath = null;
 
         public EventLogReader(EventLogReaderSettings settings)
         {
@@ -79,21 +79,25 @@ namespace OneSTools.EventLog
                 {
                     if (_settings.LiveMode)
                     {
+
                         _lgpChangedCreated.Reset();
 
-                        var waitHandle = WaitHandle.WaitAny(
-                            new[] {_lgpChangedCreated, cancellationToken.WaitHandle}, _settings.ReadingTimeout);
-
-                        if (_settings.ReadingTimeout != Timeout.Infinite && waitHandle == WaitHandle.WaitTimeout)
-                            throw new EventLogReaderTimeoutException();
+                        Thread.Sleep(_settings.ReadingTimeout);
+                        /*var waitHandle = WaitHandle.WaitAny(
+                            new[] { _lgpChangedCreated, cancellationToken.WaitHandle }, _settings.ReadingTimeout);*/
 
                         SetNextLgpReader();
 
+                        //if (_settings.ReadingTimeout != Timeout.Infinite && waitHandle == WaitHandle.WaitTimeout)
+                        //  throw new EventLogReaderTimeoutException();
+
                         _lgpChangedCreated.Reset();
+
                     }
                     else
                     {
                         var newReader = SetNextLgpReader();
+
                         if (!newReader)
                             break;
                     }
@@ -113,20 +117,34 @@ namespace OneSTools.EventLog
         private bool SetNextLgpReader()
         {
             var currentReaderLastWriteDateTime = DateTime.MinValue;
+            string item1;
 
             if (_lgpReader != null)
-                currentReaderLastWriteDateTime = new FileInfo(_lgpReader.LgpPath).LastWriteTime;
-            else if(_settings.SkipEventsBeforeDate != DateTime.MinValue)
-                currentReaderLastWriteDateTime = _settings.SkipEventsBeforeDate.AddSeconds(-1);
+            {
+                /*currentReaderLastWriteDateTime = new FileInfo(_lgpReader.LgpPath).LastWriteTime;
 
-            var filesDateTime = Directory.EnumerateFiles(_settings.LogFolder, "*.lgp")
-                .Select(file => (file, File.GetLastWriteTime(file)))
-                .Where(tuple => _lgpReader == null || tuple.file != _lgpReader.LgpPath)
-                .Where(tuple => tuple.Item2 > currentReaderLastWriteDateTime)
-                .OrderBy(tuple => tuple.Item2)
-                .FirstOrDefault();
+                item1 = Directory.GetFiles(_settings.LogFolder, "*.lgp")
+                    .Where(file => IsNewFile(file, currentReaderLastWriteDateTime))
+                    .OrderBy(file => file)
+                    .FirstOrDefault();*/
 
-            var item1 = filesDateTime.file;
+                // Note this code ignores skip event before date
+                item1 = nextHourFileName(_lgpReader.LgpPath);
+            }
+            else
+            {
+                if (_settings.SkipEventsBeforeDate != DateTime.MinValue)
+                    currentReaderLastWriteDateTime = _settings.SkipEventsBeforeDate.AddSeconds(-1);
+
+                var filesDateTime = Directory.EnumerateFiles(_settings.LogFolder, "*.lgp")
+                    .Select(file => (file, File.GetLastWriteTime(file)))
+                    .Where(tuple => _lgpReader == null || tuple.file != _lgpReader.LgpPath)
+                    .Where(tuple => tuple.Item2 > currentReaderLastWriteDateTime)
+                    .OrderBy(tuple => tuple.Item2)
+                    .FirstOrDefault();
+
+                item1 = filesDateTime.file;
+            }
 
             if (string.IsNullOrEmpty(item1))
             {
@@ -141,6 +159,46 @@ namespace OneSTools.EventLog
             return true;
         }
 
+        private string nextHourFileName(string currentFileName)
+        {
+            string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(currentFileName);
+
+            // Extract the timestamp part from the current file name
+            string timestampPart = fileNameWithoutExtension.Substring(0, 14); // Assuming the timestamp length is 14 characters
+
+            // Parse the timestamp to get the DateTime
+            if (DateTime.TryParseExact(timestampPart, "yyyyMMddHHmmss", null, System.Globalization.DateTimeStyles.None, out DateTime currentFileDateTime))
+            {
+                // Calculate the date and time for one hour later
+                DateTime oneHourLater = currentFileDateTime.AddHours(1);
+
+                // Format the date and time one hour later in the specified format
+                string oneHourLaterFormatted = oneHourLater.ToString("yyyyMMddHHmmss") + ".lpg";
+
+                // Construct the expected file name pattern for one hour later
+                if (File.Exists(oneHourLaterFormatted))
+                    return oneHourLaterFormatted;
+            }
+
+            return currentFileName;
+        }
+        /*private bool IsNewFile(string filePath, DateTime lastWriteDateTime)
+        {
+            // Extract the timestamp part of the filename (e.g., "20230821000000")
+            string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(filePath);
+            if (fileNameWithoutExtension != null && fileNameWithoutExtension.Length >= 14)
+            {
+                string timestampStr = fileNameWithoutExtension.Substring(0, 14);
+
+                if (DateTime.TryParseExact(timestampStr, "yyyyMMddHHmmss", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime fileDateTime))
+                {
+                    return fileDateTime > lastWriteDateTime;
+                }
+            }
+
+            return false;
+        }*/
+
         private void StartLgpFilesWatcher()
         {
             _lgpChangedCreated = new ManualResetEvent(false);
@@ -149,21 +207,30 @@ namespace OneSTools.EventLog
             {
                 NotifyFilter = NotifyFilters.CreationTime | NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.Attributes
             };
-            _lgpFilesWatcher.Changed += LgpFilesWatcher_Event;
-            _lgpFilesWatcher.Created += LgpFilesWatcher_Event;
+            _lgpFilesWatcher.Changed += LgpFilesWatcher_EventChanged;
+            _lgpFilesWatcher.Created += LgpFilesWatcher_EventCreated;
             _lgpFilesWatcher.EnableRaisingEvents = true;
         }
 
-        private void LgpFilesWatcher_Event(object sender, FileSystemEventArgs e)
+        private void LgpFilesWatcher_EventChanged(object sender, FileSystemEventArgs e)
+        {
+            if (e.ChangeType == WatcherChangeTypes.Changed)
+                _lgpChangedCreated.Set();
+        }
+
+        private void LgpFilesWatcher_EventCreated(object sender, FileSystemEventArgs e)
         {
             if (e.ChangeType == WatcherChangeTypes.Created)
             {
-                _lgpReader?.Dispose();
-                _lgpReader = null;
+
+                /*Console.WriteLine("Event Created");
+                Console.WriteLine("old path " + _lgpReader.LgpPath);
+                Console.WriteLine("new path " + e.FullPath);*/
+
+                //_newLgpPath = e.FullPath;
+                //SetNextLgpReader();
                 _lgpChangedCreated.Set();
             }
-            else if (e.ChangeType == WatcherChangeTypes.Changed)
-                _lgpChangedCreated.Set();
         }
 
         protected virtual void Dispose(bool disposing)

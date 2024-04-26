@@ -1,13 +1,13 @@
+using ClickHouse.Client.ADO;
+using ClickHouse.Client.Copy;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using ClickHouse.Client.ADO;
-using ClickHouse.Client.Copy;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 
 namespace OneSTools.EventLog.Exporter.Core.ClickHouse
 {

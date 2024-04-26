@@ -1,8 +1,8 @@
-﻿using System;
+﻿using OneSTools.BracketsFile;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
-using OneSTools.BracketsFile;
 
 namespace OneSTools.EventLog
 {
@@ -48,7 +48,7 @@ namespace OneSTools.EventLog
             {
                 var itemData = _bracketsReader.NextNode();
 
-                var ot = (ObjectType) (int) itemData[0];
+                var ot = (ObjectType)(int)itemData[0];
 
                 // Skip unknown object types
                 if (ot >= ObjectType.Unknown)
@@ -58,8 +58,8 @@ namespace OneSTools.EventLog
                 {
                     case ObjectType.Users:
                     case ObjectType.Metadata:
-                        var key = (ot, (int) itemData[3]);
-                        var value = ((string) itemData[2], (string) itemData[1]);
+                        var key = (ot, (int)itemData[3]);
+                        var value = ((string)itemData[2], (string)itemData[1]);
 
                         if (_referencedObjects.ContainsKey(key))
                             _referencedObjects.Remove(key);
@@ -77,8 +77,8 @@ namespace OneSTools.EventLog
 
                         break;
                     default:
-                        var key1 = (ot, (int) itemData[2]);
-                        var value1 = (string) itemData[1];
+                        var key1 = (ot, (int)itemData[2]);
+                        var value1 = (string)itemData[1];
 
                         if (_objects.ContainsKey(key1))
                             _objects.Remove(key1);
@@ -110,7 +110,7 @@ namespace OneSTools.EventLog
 
             if (_objects.TryGetValue((objectType, number), out value))
                 return value;
-            
+
             return null;
         }
 

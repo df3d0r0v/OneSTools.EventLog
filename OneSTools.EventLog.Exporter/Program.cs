@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -8,6 +6,8 @@ using OneSTools.EventLog.Exporter.Core;
 using OneSTools.EventLog.Exporter.Core.ClickHouse;
 using OneSTools.EventLog.Exporter.Core.ElasticSearch;
 using OneSTools.EventLog.Exporter.Core.Splunk;
+using System;
+using System.IO;
 
 namespace OneSTools.EventLog.Exporter
 {

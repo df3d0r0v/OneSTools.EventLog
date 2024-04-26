@@ -1,9 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -12,6 +6,13 @@ using OneSTools.EventLog.Exporter.Core;
 using OneSTools.EventLog.Exporter.Core.ClickHouse;
 using OneSTools.EventLog.Exporter.Core.ElasticSearch;
 using OneSTools.EventLog.Exporter.Core.Splunk;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
 
 
 namespace OneSTools.EventLog.Exporter.Manager
@@ -43,6 +44,7 @@ namespace OneSTools.EventLog.Exporter.Manager
         private string _splunkToken;
         private string _splunkPath;
         private int _splunkTimeout;
+        private readonly IHttpClientFactory _httpClientFactory;
 
         private readonly IServiceProvider _serviceProvider;
 
@@ -54,7 +56,7 @@ namespace OneSTools.EventLog.Exporter.Manager
 
 
         public ExportersManager(ILogger<ExportersManager> logger, IServiceProvider serviceProvider,
-            IConfiguration configuration)
+            IConfiguration configuration, IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
@@ -67,7 +69,7 @@ namespace OneSTools.EventLog.Exporter.Manager
             _loadArchive = configuration.GetValue("Exporter:LoadArchive", false);
             _readingTimeout = configuration.GetValue("Exporter:ReadingTimeout", 1);
             _skipEventsBeforeDate = configuration.GetValue("Exporter:SkipEventsBeforeDate", DateTime.MinValue);
-            
+
 
             var timeZone = configuration.GetValue("Exporter:TimeZone", "");
 
@@ -110,7 +112,8 @@ namespace OneSTools.EventLog.Exporter.Manager
                         _splunkPath = configuration.GetValue("Splunk:EventLogPositionPath", "");
                         if (string.IsNullOrWhiteSpace(_splunkPath))
                             throw new Exception("EventLogPositionPath is not specified");
-                        _splunkTimeout = configuration.GetValue("Splunk:Timeout", 5); ;
+                        _splunkTimeout = configuration.GetValue("Splunk:Timeout", 5);
+                        _httpClientFactory = httpClientFactory;
                         break;
                     }
             }
@@ -214,7 +217,7 @@ namespace OneSTools.EventLog.Exporter.Manager
                                 }
                                 catch (Exception ex)
                                 {
-					                if (ex.Message.ToString().Contains("LPG reader is not initialized"))
+                                    if (ex.Message.ToString().Contains("LPG reader is not initialized"))
                                         _logger?.LogInformation(ex, "LPG error");
                                     else
                                         _logger?.LogCritical(ex, "Failed to execute EventLogExporter");
@@ -289,7 +292,8 @@ namespace OneSTools.EventLog.Exporter.Manager
                             Path = _splunkPath,
                             Host = _splunkHost,
                             Token = _splunkToken,
-                            SplunkTimeout = _splunkTimeout
+                            SplunkTimeout = _splunkTimeout,
+                            Client = _httpClientFactory
                         };
 
                         return new SplunkStorage(settings, logger);

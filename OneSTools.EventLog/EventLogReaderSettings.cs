@@ -1,6 +1,6 @@
-﻿using System;
+﻿using NodaTime;
+using System;
 using System.Threading;
-using NodaTime;
 
 namespace OneSTools.EventLog
 {

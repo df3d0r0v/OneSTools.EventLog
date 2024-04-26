@@ -1,12 +1,12 @@
-﻿using System;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using NodaTime;
+using System;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using NodaTime;
 
 namespace OneSTools.EventLog.Exporter.Core
 {

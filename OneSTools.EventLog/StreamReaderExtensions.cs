@@ -19,15 +19,15 @@ namespace OneSTools.EventLog
         {
             // shift position back from BaseStream.Position by the number of bytes read
             // into internal buffer.
-            var byteLen = (int) byteLenField.GetValue(reader);
+            var byteLen = (int)byteLenField.GetValue(reader);
             var position = reader.BaseStream.Position - byteLen;
 
             // if we have consumed chars from the buffer we need to calculate how many
             // bytes they represent in the current encoding and add that to the position.
-            var charPos = (int) charPosField.GetValue(reader);
+            var charPos = (int)charPosField.GetValue(reader);
             if (charPos > 0)
             {
-                var charBuffer = (char[]) charBufferField.GetValue(reader);
+                var charBuffer = (char[])charBufferField.GetValue(reader);
                 var encoding = reader.CurrentEncoding;
                 var bytesConsumed = encoding.GetBytes(charBuffer, 0, charPos).Length;
                 position += bytesConsumed;

@@ -1,10 +1,10 @@
-﻿using System;
+﻿using NodaTime;
+using OneSTools.BracketsFile;
+using System;
 using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading;
-using NodaTime;
-using OneSTools.BracketsFile;
 
 namespace OneSTools.EventLog
 {

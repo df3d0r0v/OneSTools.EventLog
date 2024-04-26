@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "OneSTools.EventLog": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\Users\\dfedoro\\Documents\\Workspace\\OneSTools.EventLog\\Build\\Debug\\net6.0\\EventLogExportersManager.exe",
+      "workingDirectory": "C:\\Users\\dfedoro\\Desktop"
+    }
+  }
+}
