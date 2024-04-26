@@ -45,11 +45,6 @@ namespace OneSTools.EventLog.Exporter.Core.Splunk
             _client.DefaultRequestHeaders.Add("Authorization", _splunkToken);
             _logger?.LogInformation("Client has been created " + _databaseName);
 
-
-            /*_client = new HttpClient();
-            _client.BaseAddress = new Uri(_splunkHost);
-            _client.DefaultRequestHeaders.Add("Authorization", _splunkToken);
-            _client.Timeout = _timeout;*/
             CheckSettings();
         }
 
@@ -64,10 +59,6 @@ namespace OneSTools.EventLog.Exporter.Core.Splunk
             // check how to handle if get value is empty ?????
             _eventLogPositionPath = Path.Combine(configuration.GetValue("Splunk:EventLogPositionPath", ""), "eventLogPosition.txt");
 
-            /*_client = new HttpClient();
-            _client.BaseAddress = new Uri(_splunkHost);
-            _client.DefaultRequestHeaders.Add("Authorization", _splunkToken);
-            _client.Timeout = _timeout;*/
             CheckSettings();
         }
 
@@ -134,23 +125,12 @@ namespace OneSTools.EventLog.Exporter.Core.Splunk
                     return;
                 }
 
-                // Convert event log item to JSON
-                //entities[i].DatabaseName = _databaseName;
                 string json = JsonSerializer.Serialize(entities[i], options);
                 long time = convertTime(entities[i].DateTime);
 
-                //StringContent content = new StringContent("{\"event\": " + json + ",\"time\": " + time + "}", Encoding.UTF8, "application/json");
+
                 events.Add(new StringContent("{\"event\": " + json + ",\"time\": " + time + "}", Encoding.UTF8, "application/json"));
-                // Send the event to Splunk and check result
-                /*if (await HttpPostAsync(content, cancellationToken))
-                {
-                    // disabled for optimization
-                    //_logger?.LogInformation("Event sent successfully.");
-                    _lastevent = json;
-                    
-                }
-                else
-                    i--;*/
+             
             }
             _logger?.LogInformation("Sending portion of events started for db " + _databaseName);
             await HttpPostAsync(events, cancellationToken);
@@ -165,8 +145,6 @@ namespace OneSTools.EventLog.Exporter.Core.Splunk
 
         private long convertTime(DateTime dateTime)
         {
-            //return ((DateTimeOffset)dateTime).ToUnixTimeSeconds();
-
             // Calculate the difference in seconds between the current time and the Unix epoch
             TimeSpan timeSinceEpoch = dateTime - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
@@ -233,27 +211,6 @@ namespace OneSTools.EventLog.Exporter.Core.Splunk
                 _logger?.LogError($"An unexpected error occurred: {ex.Message}");
                 return false;
             }
-            /*try
-            {
-                HttpResponseMessage response = await _client.PostAsync("", content);
-                response.EnsureSuccessStatusCode();
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger?.LogError($"Error sending event. Response content: {ex.Message}");
-                return false;
-            }
-            catch (TaskCanceledException ex)
-            {
-                _logger?.LogError("Error sending event. Timed out.");
-                return false;
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError($"Error sending event. An error occurred: {ex.Message}");
-                return false;
-            }
-            return true;*/
         }
     }
 }
